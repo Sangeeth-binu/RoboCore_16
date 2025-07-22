@@ -25,7 +25,7 @@
 // Constants
 #define MEMORY_SIZE 65536
 #define FRAME_SIZE 4096
-#define NUM_PAGES 16
+#define NUM_PAGES 32
 #define NUM_FRAMES 16
 #define INVALID_FRAME 17
 
