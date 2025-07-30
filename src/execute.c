@@ -1,0 +1,114 @@
+#include<stdio.h>
+#include<stdint.h>
+
+enum _registers{
+    R0 = 0x00,
+    R1 = 0x01,
+    R2 = 0x02,
+    R3 = 0x03,
+    R4 = 0x04,
+    R5 = 0x05,
+    R6 = 0x06,
+    R7 = 0x07,
+    R8 = 0x08,
+    R9 = 0x09,
+    R10 = 0x0A,
+    R11 = 0x0B,
+    R12 = 0x0C,
+    R13 = 0x0D,
+    R14 = 0x0E,
+    R15 = 0x0F,
+    STR = 0x10,
+    IN = 0x11,
+    OUT= 0x12,
+    PC = 0x13,
+    IR = 0x14,
+    MAR = 0x15,
+    MDR = 0x16
+};
+
+
+enum _instructions{
+    START = 0x30,
+    ADD =  0x31,
+    SUB =0x32,
+    MUL =0x33,
+    DIV =0x34,
+
+
+    AND =0x35,
+    ORR =0x36,
+    EOR  =0x37,
+     
+    LSL =0x38,
+    LSR =0x39,
+     
+    ROR =0x3A,
+    CMP =0x3B,
+    LDD =0x3C,
+    MOV =0x3D,
+    BRANCH =0x3E,
+    BEQ =0x3F,
+    BNE =0x40
+
+};
+
+uint32_t instruction;
+uint8_t opcode;
+
+void realize(instruction){
+    opcode = instruction << 12;
+
+}
+
+void to_instructions(){
+    switch (instruction){
+        case START : switch (opcode) {
+
+                        //basic
+                        case LDD : 
+
+                        case MOV : 
+
+                        //arithmetic
+                        case ADD : 
+
+                        case SUB :
+
+                        case MUL :
+
+                        case DIV :
+
+
+
+                        // logical operations
+                        case AND :
+
+                        case ORR :
+
+                        case EOR :
+
+                        //bit shifting and rotating
+
+                        case LSL :
+
+                        case LSR :
+
+                        case ROR :
+
+                        //compare
+                        case CMP :
+
+                        //branching
+
+                        case BRANCH :
+
+                        case BEQ :
+
+                        case BNE :
+
+
+
+                    }
+    }
+}
