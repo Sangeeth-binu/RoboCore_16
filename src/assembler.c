@@ -50,3 +50,5 @@ enum _instructions{
     BNE =0x40
 
 };
+
+
