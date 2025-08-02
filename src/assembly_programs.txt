@@ -1,0 +1,81 @@
+START   R0    0     0
+MOV     R0    0     1
+MOV     R1    0     1
+MOV     R2    0     10
+MOV     R3    0     0
+PUSH    R0    0     0
+PUSH    R1    0     0
+ADD     R3    R0    R1
+MOV     R0    R1    0
+MOV     R1    R3    0
+PUSH    R1    0     0
+SUB     R2    R2    1
+CMP     R2    0     0
+BNE     07    0     0
+HALT    00    0     0
+START   R0    0     0
+MOV     R0    0     5
+MOV     R1    0     1
+MOV     R2    R0    0
+MUL     R1    R1    R2
+SUB     R2    R2    1
+CMP     R2    0     1
+BGT     04    0     0
+MOV     R3    R1    0
+PUSH    R3    0     0
+HALT    00    0     0
+START   R0    0     0
+MOV     R0    0     0
+MOV     R1    0     8
+MOV     R2    0     100
+MOV     R3    0     5
+ADD     R0    R0    R3
+MOV     R3    0     10
+ADD     R0    R0    R3
+MOV     R3    0     15
+ADD     R0    R0    R3
+MOV     R3    0     20
+ADD     R0    R0    R3
+MOV     R3    0     25
+ADD     R0    R0    R3
+MOV     R3    0     30
+ADD     R0    R0    R3
+PUSH    R0    0     0
+HALT    R0    0     0
+
+START   R0    0     0
+MOV     R0    0     25
+MOV     R1    0     0
+MOV     R2    0     7  
+MOV     R3    0     0
+MOV     R4    0     0
+// Binary search loop
+ADD     R3    R1    R2
+LSR     R3    R3    1        // R3 = (left + right) / 2 (mid)
+// Simulate array access based on mid index
+CMP     R3    0     0        // if mid == 0
+BEQ     15    0     0        // load array[0] = 5
+CMP     R3    0     1        // if mid == 1  
+BEQ     16    0     0        // load array[1] = 10
+CMP     R3    0     2        // if mid == 2
+BEQ     17    0     0        // load array[2] = 15
+CMP     R3    0     3        // if mid == 3
+BEQ     18    0     0        // load array[3] = 20
+MOV     R4    0     25       // array[4] = 25 (default case)
+BRANCH  19    0     0        // skip to comparison
+MOV     R4    0     5        // array[0] = 5
+BRANCH  19    0     0        // skip to comparison  
+MOV     R4    0     10       // array[1] = 10
+BRANCH  19    0     0        // skip to comparison
+MOV     R4    0     15       // array[2] = 15
+BRANCH  19    0     0        // skip to comparison
+MOV     R4    0     20       // array[3] = 20
+CMP     R4    R0    0        // Compare array[mid] with target
+BEQ     24    0     0        // Found! Branch to end
+BLT     22    0     0        // if array[mid] < target, search right
+SUB     R2    R3    1        // right = mid - 1 (search left)
+BRANCH  6     0     0        // Continue loop
+ADD     R1    R3    1        // left = mid + 1 (search right)  
+BRANCH  6     0     0        // Continue loop
+PUSH    R3    0     0        // Push found index
+HALT    0     0     0
