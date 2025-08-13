@@ -50,9 +50,9 @@ void printSpecialRegisters(){
 }
 
 void track( CPUstate_t *before , CPUstate_t *after){
-    /*CPUState_t prev_state = CPUState;     // snapshot before instruction
+    /*CPUState_t prev_state = CPUState;
 
-executeInstruction();                 // your instruction execution
+executeInstruction();    */
 
 track_register_changes(&prev_state, &CPUState);  // compare
 */
