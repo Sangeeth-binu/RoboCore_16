@@ -1,0 +1,561 @@
+# PRIORITY-BASED PROGRAM MANAGER FOR ROBOTICS CPU
+# Replace your MAIN_LOOP section with this enhanced version
+
+MAIN_LOOP:
+    # Priority Management System
+    # Priority 0 = Highest (Safety Critical)
+    # Priority 3 = Lowest (Background Tasks)
+    
+    # PRIORITY 0: EMERGENCY SYSTEMS (Always check first)
+    LW R1, 0x900(R0)    # Emergency stop flag
+    BNE R1, R0, EMERGENCY_STOP
+    
+    LW R2, 0x400(R0)    # Obstacle collision flag
+    BNE R2, R0, EMERGENCY_AVOID
+    
+    # PRIORITY 1: REAL-TIME CONTROL SYSTEMS
+    LW R3, 0x910(R0)    # Control system timer
+    LI R4, 10           # Control runs every 10ms
+    BLT R3, R4, SKIP_CONTROL
+    
+    # Reset timer and run control
+    LI R5, 0
+    SW R5, 0x910(R0)    # Reset control timer
+    CALL PID_CONTROL    # Run PID control
+    CALL MOTOR_CONTROL_LOOP  # Update motors immediately
+    
+SKIP_CONTROL:
+    # PRIORITY 2: SENSOR PROCESSING (Run every 50ms)
+    LW R6, 0x911(R0)    # Sensor timer
+    LI R7, 50           # Sensors run every 50ms
+    BLT R6, R7, SKIP_SENSORS
+    
+    # Reset timer and run sensors
+    LI R8, 0
+    SW R8, 0x911(R0)    # Reset sensor timer
+    CALL SENSOR_READ_LOOP  # Update all sensor readings
+    
+SKIP_SENSORS:
+    # PRIORITY 3: NAVIGATION ALGORITHMS (Run every 100ms)
+    LW R9, 0x912(R0)    # Navigation timer
+    LI R10, 100         # Navigation runs every 100ms
+    BLT R9, R10, SKIP_NAVIGATION
+    
+    # Reset timer and run navigation
+    LI R11, 0
+    SW R11, 0x912(R0)   # Reset navigation timer
+    
+    # Choose navigation algorithm based on mode
+    LW R12, 0x800(R0)   # Read system mode
+    LI R13, 1
+    BEQ R12, R13, NAV_LINE_FOLLOW
+    LI R13, 2
+    BEQ R12, R13, NAV_MAZE_SOLVE
+    JMP SKIP_NAVIGATION
+    
+NAV_LINE_FOLLOW:
+    CALL LINE_FOLLOW
+    JMP SKIP_NAVIGATION
+    
+NAV_MAZE_SOLVE:
+    CALL MAZE_SOLVE
+    
+SKIP_NAVIGATION:
+    # PRIORITY 4: COMMUNICATION (Run every 200ms - lowest priority)
+    LW R14, 0x913(R0)   # Communication timer
+    LI R15, 200         # Communication runs every 200ms
+    BLT R14, R15, UPDATE_TIMERS
+    
+    # Reset timer and run communication
+    LI R1, 0
+    SW R1, 0x913(R0)    # Reset communication timer
+    CALL ROBOT_COMM     # Handle robot communication
+    
+UPDATE_TIMERS:
+    # Increment all timers (assuming 1ms system tick)
+    LW R2, 0x910(R0)    # Control timer
+    ADDI R2, R2, 1
+    SW R2, 0x910(R0)
+    
+    LW R3, 0x911(R0)    # Sensor timer
+    ADDI R3, R3, 1
+    SW R3, 0x911(R0)
+    
+    LW R4, 0x912(R0)    # Navigation timer
+    ADDI R4, R4, 1
+    SW R4, 0x912(R0)
+    
+    LW R5, 0x913(R0)    # Communication timer
+    ADDI R5, R5, 1
+    SW R5, 0x913(R0)
+    
+    # Check for mode changes
+    LW R6, 0x801(R0)    # Mode change request
+    BEQ R6, R0, CONTINUE_LOOP
+    
+    # Handle mode change
+    SW R6, 0x800(R0)    # Update current mode
+    LI R7, 0
+    SW R7, 0x801(R0)    # Clear mode change request
+    
+CONTINUE_LOOP:
+    JMP MAIN_LOOP       # Continue the priority loop
+
+# EMERGENCY HANDLERS
+EMERGENCY_STOP:
+    # Immediate motor shutdown
+    LI R1, 0
+    SW R1, 0x100(R0)    # Stop Motor 1
+    SW R1, 0x101(R0)    # Stop Motor 2
+    SW R1, 0x102(R0)    # Stop Motor 3
+    SW R1, 0x103(R0)    # Stop Motor 4
+    
+    # Set emergency LED
+    LI R2, 1
+    SW R2, 0x920(R0)    # Emergency LED on
+    
+    # Wait for emergency clear
+EMERGENCY_WAIT:
+    LW R3, 0x900(R0)    # Check emergency flag
+    BNE R3, R0, EMERGENCY_WAIT
+    
+    # Clear emergency LED and resume
+    LI R4, 0
+    SW R4, 0x920(R0)    # Emergency LED off
+    JMP MAIN_LOOP
+
+EMERGENCY_AVOID:
+    # Collision avoidance override
+    LW R1, 0x400(R0)    # Get obstacle direction
+    
+    # Reverse motors briefly
+    LI R2, 100          # Reverse speed
+    LI R3, 0
+    
+    # Direction-based avoidance
+    LI R4, 1            # Front obstacle
+    BEQ R1, R4, AVOID_FRONT
+    LI R4, 2            # Right obstacle  
+    BEQ R1, R4, AVOID_RIGHT
+    LI R4, 4            # Left obstacle
+    BEQ R1, R4, AVOID_LEFT
+    JMP CLEAR_OBSTACLE
+    
+AVOID_FRONT:
+    # Back up
+    SW R3, 0x100(R0)    # Left motor reverse
+    SW R3, 0x101(R0)    # Right motor reverse
+    JMP AVOID_DELAY
+    
+AVOID_RIGHT:
+    # Turn left
+    SW R2, 0x100(R0)    # Left motor forward
+    SW R3, 0x101(R0)    # Right motor stop
+    JMP AVOID_DELAY
+    
+AVOID_LEFT:
+    # Turn right
+    SW R3, 0x100(R0)    # Left motor stop
+    SW R2, 0x101(R0)    # Right motor forward
+    
+AVOID_DELAY:
+    # Simple delay counter for avoidance maneuver
+    LI R5, 1000         # Delay counter
+AVOID_LOOP:
+    SUBI R5, R5, 1
+    BNE R5, R0, AVOID_LOOP
+    
+CLEAR_OBSTACLE:
+    # Clear obstacle flag and resume
+    LI R6, 0
+    SW R6, 0x400(R0)    # Clear obstacle status
+    JMP MAIN_LOOP
+
+# SUBROUTINE CALL/RETURN MECHANISM
+# Convert your programs to subroutines by replacing JMP with RET
+# Add these at the end of each program section:
+
+PID_CONTROL:
+    # Your existing PID code here...
+    # Replace final JMP with:
+    RET                 # Return to caller
+
+SENSOR_READ_LOOP:
+    # Your existing sensor code here...
+    # Replace final JMP with:
+    RET                 # Return to caller
+
+LINE_FOLLOW:
+    # Your existing line following code here...
+    # Replace final JMP with:
+    RET                 # Return to caller
+
+MAZE_SOLVE:
+    # Your existing maze solving code here...
+    # Replace final JMP with:
+    RET                 # Return to caller
+
+ROBOT_COMM:
+    # Your existing communication code here...
+    # Replace final JMP with:
+    RET                 # Return to caller
+
+MOTOR_CONTROL_LOOP:
+    # Your existing motor control code here...
+    # Replace final JMP with:
+    RET                 # Return to caller
+
+
+    ___________________________________________________________________________________________________
+
+# ROBOTICS-OPTIMIZED ASSEMBLY PROGRAMS (256 Instructions = 1KB ROM)
+# Each program demonstrates different robotics capabilities
+
+# PROGRAM 1: MOTOR CONTROL SYSTEM (Lines 1-40)
+MOTOR_INIT:
+    LI R1, 0x100        # Motor 1 PWM register address
+    LI R2, 0x101        # Motor 2 PWM register address  
+    LI R3, 0x102        # Motor 3 PWM register address
+    LI R4, 0x103        # Motor 4 PWM register address
+    LI R5, 128          # Default PWM value (50% speed)
+    SW R5, 0(R1)        # Set Motor 1 speed
+    SW R5, 0(R2)        # Set Motor 2 speed
+    SW R5, 0(R3)        # Set Motor 3 speed
+    SW R5, 0(R4)        # Set Motor 4 speed
+
+MOTOR_CONTROL_LOOP:
+    LW R6, 0x200(R0)    # Read joystick X input
+    LW R7, 0x201(R0)    # Read joystick Y input
+    
+    # Calculate differential drive speeds
+    ADD R8, R6, R7      # Right motor = X + Y
+    SUB R9, R7, R6      # Left motor = Y - X
+    
+    # Limit speeds to 0-255 range
+    ANDI R8, R8, 0xFF   # Mask to 8 bits
+    ANDI R9, R9, 0xFF   # Mask to 8 bits
+    
+    # Update motor speeds
+    SW R8, 0(R1)        # Set right motor speed
+    SW R9, 0(R2)        # Set left motor speed
+    
+    # Check for stop command
+    LW R10, 0x202(R0)   # Read stop button
+    BEQ R10, R0, MOTOR_CONTROL_LOOP  # Continue if not pressed
+    
+    # Emergency stop - set all motors to 0
+    LI R11, 0
+    SW R11, 0(R1)       # Stop Motor 1
+    SW R11, 0(R2)       # Stop Motor 2
+    SW R11, 0(R3)       # Stop Motor 3
+    SW R11, 0(R4)       # Stop Motor 4
+    JMP SENSOR_INIT     # Jump to next program
+
+# PROGRAM 2: SENSOR READING AND PROCESSING (Lines 41-80)
+SENSOR_INIT:
+    LI R1, 0x300        # Ultrasonic sensor 1 address
+    LI R2, 0x301        # Ultrasonic sensor 2 address
+    LI R3, 0x302        # Ultrasonic sensor 3 address
+    LI R4, 0x303        # Ultrasonic sensor 4 address
+    LI R5, 0x304        # IMU accelerometer X
+    LI R6, 0x305        # IMU accelerometer Y
+    LI R7, 0x306        # IMU gyroscope Z
+
+SENSOR_READ_LOOP:
+    # Read all ultrasonic sensors
+    LW R8, 0(R1)        # Front sensor distance
+    LW R9, 0(R2)        # Right sensor distance
+    LW R10, 0(R3)       # Back sensor distance
+    LW R11, 0(R4)       # Left sensor distance
+    
+    # Read IMU data
+    LW R12, 0(R5)       # Acceleration X
+    LW R13, 0(R6)       # Acceleration Y
+    LW R14, 0(R7)       # Gyroscope Z
+    
+    # Obstacle detection logic
+    LI R15, 30          # Minimum safe distance (30cm)
+    
+    # Check front obstacle
+    BLT R8, R15, OBSTACLE_FRONT
+    # Check right obstacle  
+    BLT R9, R15, OBSTACLE_RIGHT
+    # Check back obstacle
+    BLT R10, R15, OBSTACLE_BACK
+    # Check left obstacle
+    BLT R11, R15, OBSTACLE_LEFT
+    
+    # No obstacles - continue normal operation
+    JMP SENSOR_FUSION
+    
+OBSTACLE_FRONT:
+    LI R1, 1            # Set obstacle flag
+    SW R1, 0x400(R0)    # Store in obstacle status register
+    JMP SENSOR_FUSION
+    
+OBSTACLE_RIGHT:
+    LI R1, 2            # Set obstacle flag
+    SW R1, 0x400(R0)    # Store in obstacle status register
+    JMP SENSOR_FUSION
+    
+OBSTACLE_BACK:
+    LI R1, 3            # Set obstacle flag
+    SW R1, 0x400(R0)    # Store in obstacle status register
+    JMP SENSOR_FUSION
+    
+OBSTACLE_LEFT:
+    LI R1, 4            # Set obstacle flag
+    SW R1, 0x400(R0)    # Store in obstacle status register
+
+SENSOR_FUSION:
+    # Simple sensor fusion - combine accelerometer readings
+    ADD R1, R12, R13    # Combine X and Y acceleration
+    SRL R1, R1, 1       # Divide by 2 (simple average)
+    SW R1, 0x401(R0)    # Store fused acceleration
+    
+    # Store gyroscope for heading calculation
+    SW R14, 0x402(R0)   # Store gyroscope Z
+    JMP PID_CONTROL     # Jump to next program
+
+# PROGRAM 3: PID CONTROL SYSTEM (Lines 81-120)
+PID_CONTROL:
+    # PID Constants (Kp=2, Ki=1, Kd=1)
+    LI R1, 2            # Proportional gain
+    LI R2, 1            # Integral gain  
+    LI R3, 1            # Derivative gain
+    
+    # Load current sensor values
+    LW R4, 0x401(R0)    # Current position (from sensor fusion)
+    LI R5, 100          # Target position (setpoint)
+    
+    # Calculate error
+    SUB R6, R5, R4      # Error = Target - Current
+    
+    # Load previous values from memory
+    LW R7, 0x500(R0)    # Previous error
+    LW R8, 0x501(R0)    # Integral sum
+    
+    # Calculate proportional term
+    MUL R9, R1, R6      # P_term = Kp * error
+    
+    # Calculate integral term
+    ADD R8, R8, R6      # Integral_sum += error
+    MUL R10, R2, R8     # I_term = Ki * integral_sum
+    
+    # Calculate derivative term
+    SUB R11, R6, R7     # Derivative = error - previous_error
+    MUL R12, R3, R11    # D_term = Kd * derivative
+    
+    # Calculate total PID output
+    ADD R13, R9, R10    # PID = P_term + I_term
+    ADD R13, R13, R12   # PID += D_term
+    
+    # Limit output to valid PWM range (0-255)
+    LI R14, 255
+    BLT R13, R14, PID_VALID
+    OR R13, R14, R0     # Clamp to maximum
+PID_VALID:
+    LI R14, 0
+    BGT R13, R14, PID_POSITIVE
+    OR R13, R14, R0     # Clamp to minimum
+PID_POSITIVE:
+    
+    # Apply PID output to motors
+    SW R13, 0x100(R0)   # Update motor PWM
+    
+    # Save values for next iteration
+    SW R6, 0x500(R0)    # Save current error as previous
+    SW R8, 0x501(R0)    # Save integral sum
+    
+    JMP LINE_FOLLOW     # Jump to next program
+
+# PROGRAM 4: LINE FOLLOWING ALGORITHM (Lines 121-160)
+LINE_FOLLOW:
+    # IR sensor array addresses (5 sensors)
+    LI R1, 0x310        # Leftmost IR sensor
+    LI R2, 0x311        # Left IR sensor
+    LI R3, 0x312        # Center IR sensor
+    LI R4, 0x313        # Right IR sensor
+    LI R5, 0x314        # Rightmost IR sensor
+    
+    # Read all IR sensors
+    LW R6, 0(R1)        # Leftmost reading
+    LW R7, 0(R2)        # Left reading
+    LW R8, 0(R3)        # Center reading
+    LW R9, 0(R4)        # Right reading
+    LW R10, 0(R5)       # Rightmost reading
+    
+    # Calculate weighted position
+    # Position = (L2*-2 + L1*-1 + C*0 + R1*1 + R2*2) / (sum of active sensors)
+    LI R11, -2
+    MUL R12, R6, R11    # Leftmost * -2
+    LI R11, -1  
+    MUL R13, R7, R11    # Left * -1
+    # Center * 0 = 0 (skip)
+    LI R11, 1
+    MUL R14, R9, R11    # Right * 1
+    LI R11, 2
+    MUL R15, R10, R11   # Rightmost * 2
+    
+    # Sum weighted positions
+    ADD R1, R12, R13    # Sum leftmost and left
+    ADD R1, R1, R14     # Add right
+    ADD R1, R1, R15     # Add rightmost
+    
+    # Sum of sensor readings (for normalization)
+    ADD R2, R6, R7      # Add leftmost and left
+    ADD R2, R2, R8      # Add center
+    ADD R2, R2, R9      # Add right
+    ADD R2, R2, R10     # Add rightmost
+    
+    # Calculate line position (error signal)
+    BEQ R2, R0, LINE_LOST  # If no sensors active, line lost
+    DIV R3, R1, R2      # Position = weighted_sum / total_sum
+    
+    # Use position as error for steering
+    LI R4, 128          # Base motor speed
+    LI R5, 50           # Steering gain
+    MUL R6, R3, R5      # Steering correction
+    
+    # Calculate left and right motor speeds
+    SUB R7, R4, R6      # Left motor = base - correction
+    ADD R8, R4, R6      # Right motor = base + correction
+    
+    # Apply motor speeds
+    SW R7, 0x100(R0)    # Left motor PWM
+    SW R8, 0x101(R0)    # Right motor PWM
+    JMP MAZE_SOLVE      # Jump to next program
+    
+LINE_LOST:
+    # Stop motors when line is lost
+    LI R1, 0
+    SW R1, 0x100(R0)    # Stop left motor
+    SW R1, 0x101(R0)    # Stop right motor
+    JMP MAZE_SOLVE      # Jump to next program
+
+# PROGRAM 5: MAZE SOLVING ALGORITHM (Lines 161-200)
+MAZE_SOLVE:
+    # Wall-following maze solver (right-hand rule)
+    LI R1, 0x300        # Front ultrasonic sensor
+    LI R2, 0x301        # Right ultrasonic sensor
+    LI R3, 0x304        # Left ultrasonic sensor
+    
+    # Read wall distances
+    LW R4, 0(R1)        # Front distance
+    LW R5, 0(R2)        # Right distance
+    LW R6, 0(R3)        # Left distance
+    
+    # Wall detection threshold
+    LI R7, 25           # 25cm threshold for wall detection
+    
+    # Decision logic for right-hand rule
+    BLT R5, R7, CHECK_FRONT  # If right wall exists, check front
+    
+    # No right wall - turn right
+    LI R8, 200          # Turn speed
+    LI R9, 50           # Slow turn speed
+    SW R8, 0x100(R0)    # Left motor forward
+    SW R9, 0x101(R0)    # Right motor slow
+    JMP ROBOT_COMM      # Jump to next program
+    
+CHECK_FRONT:
+    BLT R4, R7, CHECK_LEFT  # If front wall exists, check left
+    
+    # No front wall - go straight
+    LI R8, 150          # Forward speed
+    SW R8, 0x100(R0)    # Left motor
+    SW R8, 0x101(R0)    # Right motor
+    JMP ROBOT_COMM      # Jump to next program
+    
+CHECK_LEFT:
+    BLT R6, R7, TURN_AROUND  # If left wall exists, turn around
+    
+    # No left wall - turn left
+    LI R8, 50           # Slow turn speed
+    LI R9, 200          # Turn speed
+    SW R8, 0x100(R0)    # Left motor slow
+    SW R9, 0x101(R0)    # Right motor forward
+    JMP ROBOT_COMM      # Jump to next program
+    
+TURN_AROUND:
+    # All walls present - turn around
+    LI R8, 200          # Turn speed
+    LI R9, 0            # Stop motor
+    SW R8, 0x100(R0)    # Left motor forward
+    SW R9, 0x101(R0)    # Right motor stop
+    JMP ROBOT_COMM      # Jump to next program
+
+# PROGRAM 6: ROBOT COMMUNICATION SYSTEM (Lines 201-240)
+ROBOT_COMM:
+    # Multi-robot communication and coordination
+    LI R1, 0x600        # UART transmit register
+    LI R2, 0x601        # UART receive register
+    LI R3, 0x602        # Robot ID register
+    
+    # Read own robot ID
+    LW R4, 0(R3)        # Get this robot's ID
+    
+    # Prepare status message
+    LW R5, 0x401(R0)    # Current position
+    LW R6, 0x400(R0)    # Obstacle status
+    
+    # Transmit robot status
+    SW R4, 0(R1)        # Send robot ID
+    SW R5, 0(R1)        # Send position
+    SW R6, 0(R1)        # Send obstacle status
+    
+    # Listen for other robot messages
+    LW R7, 0(R2)        # Receive robot ID
+    BEQ R7, R0, COMM_END  # If no message, continue
+    
+    # Process received message
+    LW R8, 0(R2)        # Receive position
+    LW R9, 0(R2)        # Receive obstacle status
+    
+    # Store other robot's data
+    SW R7, 0x700(R0)    # Store other robot ID
+    SW R8, 0x701(R0)    # Store other robot position
+    SW R9, 0x702(R0)    # Store other robot obstacles
+    
+    # Collision avoidance logic
+    SUB R10, R5, R8     # Distance between robots
+    LI R11, 50          # Minimum safe distance
+    BLT R10, R11, AVOID_COLLISION
+    JMP COMM_END
+    
+AVOID_COLLISION:
+    # Emergency stop if too close to another robot
+    LI R12, 0
+    SW R12, 0x100(R0)   # Stop left motor
+    SW R12, 0x101(R0)   # Stop right motor
+    
+COMM_END:
+    JMP MAIN_LOOP       # Jump to main control loop
+
+# PROGRAM 7: MAIN SYSTEM CONTROLLER (Lines 241-256)
+MAIN_LOOP:
+    # Main system controller - coordinates all subsystems
+    LW R1, 0x800(R0)    # Read system mode register
+    
+    # Mode 1: Line following
+    LI R2, 1
+    BEQ R1, R2, LINE_FOLLOW
+    
+    # Mode 2: Maze solving
+    LI R2, 2
+    BEQ R1, R2, MAZE_SOLVE
+    
+    # Mode 3: Remote control
+    LI R2, 3
+    BEQ R1, R2, MOTOR_CONTROL_LOOP
+    
+    # Mode 4: Autonomous exploration
+    LI R2, 4
+    BEQ R1, R2, SENSOR_READ_LOOP
+    
+    # Default: Stop all systems
+    HALT
+    
+# Padding to reach exactly 256 instructions
+NOP
+NOP
